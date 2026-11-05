@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -18,18 +18,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
-// Replace with your PC LAN IP for physical device testing in Expo Go
-// E.g. 'http://192.168.2.219:5000/api' or 'http://localhost:5000/api' for emulator
-const DEFAULT_HOST = Platform.OS === 'android' ? '192.168.2.219' : '192.168.2.219';
-const DEFAULT_PORT = '5000';
+// Production Cloud Domain & Local Fallbacks
+const PRODUCTION_URL = 'https://docvault.plystory.si/api';
+const LOCAL_WIFI_URL = 'http://192.168.2.219:5000/api';
 
 export default function App() {
-  // Server Config
-  const [serverHost, setServerHost] = useState(DEFAULT_HOST);
-  const [serverPort, setServerPort] = useState(DEFAULT_PORT);
+  // Server URL State (defaults to production subdomain with one-tap toggle)
+  const [apiUrl, setApiUrl] = useState(PRODUCTION_URL);
   const [showConfig, setShowConfig] = useState(false);
-
-  const API_BASE = `http://${serverHost}:${serverPort}/api`;
 
   // Auth State
   const [email, setEmail] = useState('');
@@ -38,8 +34,8 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // App Tabs
-  const [activeTab, setActiveTab] = useState('vault'); // 'vault' | 'users' | 'profile'
+  // Active Tab: 'vault' | 'users' | 'profile'
+  const [activeTab, setActiveTab] = useState('vault');
 
   // Vault State
   const [folders, setFolders] = useState([]);
@@ -57,11 +53,11 @@ export default function App() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
 
-  // Form States
+  // Form States: New Folder
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDesc, setNewFolderDesc] = useState('');
 
-  // Upload Form State
+  // Form States: Document Upload
   const [selectedFile, setSelectedFile] = useState(null);
   const [docName, setDocName] = useState('');
   const [docType, setDocType] = useState('Contract');
@@ -70,7 +66,7 @@ export default function App() {
   const [uploadFolderId, setUploadFolderId] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  // Register User Form State (Superadmin)
+  // Form States: Register User (Superadmin)
   const [regName, setRegName] = useState('');
   const [regMobile, setRegMobile] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -81,7 +77,7 @@ export default function App() {
 
   const isSuperadmin = user?.role === 'superadmin';
 
-  // Quick Sign in with configured Superadmin
+  // Fill Superadmin Credentials
   const fillSuperadmin = () => {
     setEmail('ithelpdesk@plystory.com');
     setPassword('Admin@2026');
@@ -89,13 +85,13 @@ export default function App() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Required', 'Please enter your email and password.');
+      Alert.alert('Required', 'Please enter email and password');
       return;
     }
 
     setAuthLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password })
@@ -103,7 +99,7 @@ export default function App() {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data.message || 'Authentication failed');
       }
 
       setUser(data.user);
@@ -113,7 +109,10 @@ export default function App() {
         loadUsers(data.token);
       }
     } catch (err) {
-      Alert.alert('Authentication Error', `${err.message}\nMake sure your PC backend is running at ${API_BASE}`);
+      Alert.alert(
+        'Connection / Login Error',
+        `${err.message}\n\nCurrent Server: ${apiUrl}\n\nTip: If testing offline or on local Wi-Fi, tap "Server URL Configuration" below and switch to Local Wi-Fi IP.`
+      );
     } finally {
       setAuthLoading(false);
     }
@@ -125,8 +124,8 @@ export default function App() {
     setRefreshing(true);
     try {
       const [fRes, dRes] = await Promise.all([
-        fetch(`${API_BASE}/vault/folders`, { headers: { Authorization: `Bearer ${tk}` } }),
-        fetch(`${API_BASE}/vault/documents`, { headers: { Authorization: `Bearer ${tk}` } })
+        fetch(`${apiUrl}/vault/folders`, { headers: { Authorization: `Bearer ${tk}` } }),
+        fetch(`${apiUrl}/vault/documents`, { headers: { Authorization: `Bearer ${tk}` } })
       ]);
       const fData = await fRes.json();
       const dData = await dRes.json();
@@ -145,7 +144,7 @@ export default function App() {
     if (!tk) return;
     setLoadingUsers(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/users`, {
+      const res = await fetch(`${apiUrl}/auth/users`, {
         headers: { Authorization: `Bearer ${tk}` }
       });
       const data = await res.json();
@@ -162,11 +161,11 @@ export default function App() {
   // Create Folder
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
-      Alert.alert('Error', 'Please provide a folder name.');
+      Alert.alert('Required', 'Please enter a folder name.');
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/vault/folders`, {
+      const res = await fetch(`${apiUrl}/vault/folders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -194,7 +193,7 @@ export default function App() {
     if (!isSuperadmin) return;
     Alert.alert(
       'Delete Folder',
-      `Delete folder "${folder.name}"? Documents will be preserved in the root Vault.`,
+      `Delete "${folder.name}"? Files will be kept safely in the root Vault.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -202,7 +201,7 @@ export default function App() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await fetch(`${API_BASE}/vault/folders/${folder.id}`, {
+              const res = await fetch(`${apiUrl}/vault/folders/${folder.id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
               });
@@ -222,7 +221,7 @@ export default function App() {
     );
   };
 
-  // Pick Document File
+  // Pick Document File from Device
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -239,14 +238,14 @@ export default function App() {
         }
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to pick document: ' + err.message);
+      Alert.alert('Error', 'Failed to pick file: ' + err.message);
     }
   };
 
-  // Upload Document
+  // Upload Document to Vault
   const handleUploadDocument = async () => {
     if (!selectedFile) {
-      Alert.alert('Required', 'Please select a file to upload.');
+      Alert.alert('Required', 'Please choose a file to upload.');
       return;
     }
     if (!docName.trim()) {
@@ -268,18 +267,17 @@ export default function App() {
       if (docDesc.trim()) formData.append('description', docDesc.trim());
       if (uploadFolderId) formData.append('folder_id', uploadFolderId);
 
-      const res = await fetch(`${API_BASE}/vault/upload`, {
+      const res = await fetch(`${apiUrl}/vault/upload`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
-          // Don't set Content-Type header manually for FormData in React Native
         },
         body: formData
       });
 
       const data = await res.json();
       if (data.success) {
-        Alert.alert('Success', `Document "${data.document.name}" secured in vault!`);
+        Alert.alert('Success', `"${data.document.name}" secured in Vault!`);
         setSelectedFile(null);
         setDocName('');
         setRenewalDate('');
@@ -297,10 +295,10 @@ export default function App() {
     }
   };
 
-  // View / Download Document
+  // View / Download / Share Document
   const handleDownloadAndShare = async (doc) => {
     try {
-      const downloadUrl = `${API_BASE}/vault/download/${doc.id}`;
+      const downloadUrl = `${apiUrl}/vault/download/${doc.id}`;
       const localUri = `${FileSystem.documentDirectory}${doc.original_filename}`;
 
       Alert.alert('Downloading', `Fetching ${doc.original_filename}...`);
@@ -309,10 +307,10 @@ export default function App() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri);
       } else {
-        Alert.alert('Downloaded', `Saved to: ${uri}`);
+        Alert.alert('Downloaded', `File saved to: ${uri}`);
       }
     } catch (err) {
-      Alert.alert('Error', 'Could not open or download file: ' + err.message);
+      Alert.alert('Error', 'Could not download or open file: ' + err.message);
     }
   };
 
@@ -320,7 +318,7 @@ export default function App() {
   const handleDeleteDocument = (doc) => {
     Alert.alert(
       'Delete Document',
-      `Are you sure you want to delete "${doc.name}"?`,
+      `Delete "${doc.name}" from Vault?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -328,7 +326,7 @@ export default function App() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await fetch(`${API_BASE}/vault/documents/${doc.id}`, {
+              const res = await fetch(`${apiUrl}/vault/documents/${doc.id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
               });
@@ -347,16 +345,16 @@ export default function App() {
     );
   };
 
-  // Superadmin Register New User
+  // Superadmin: Register New User
   const handleRegisterUser = async () => {
     if (!regName.trim() || !regMobile.trim() || !regEmail.trim() || !regPassword) {
-      Alert.alert('Required', 'Name, mobile, email and password are all required.');
+      Alert.alert('Required', 'Name, mobile, email, and password are all required.');
       return;
     }
 
     setRegistering(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/register-user`, {
+      const res = await fetch(`${apiUrl}/auth/register-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -417,14 +415,14 @@ export default function App() {
 
       {user ? (
         <View style={styles.mainView}>
-          {/* Top Brand Header */}
+          {/* Header */}
           <View style={styles.topHeader}>
             <View>
               <View style={styles.titleRow}>
                 <Text style={styles.brandTitle}>DocVault</Text>
                 <View style={isSuperadmin ? styles.superadminBadge : styles.userBadge}>
                   <Text style={isSuperadmin ? styles.superadminBadgeText : styles.userBadgeText}>
-                    {isSuperadmin ? 'ADMIN' : 'VAULT'}
+                    {isSuperadmin ? 'SUPERADMIN' : 'VAULT USER'}
                   </Text>
                 </View>
               </View>
@@ -435,14 +433,14 @@ export default function App() {
             </TouchableOpacity>
           </View>
 
-          {/* Tab Navigation */}
+          {/* Navigation Bar */}
           <View style={styles.navBar}>
             <TouchableOpacity 
               style={[styles.navTab, activeTab === 'vault' && styles.navTabActive]} 
               onPress={() => setActiveTab('vault')}
             >
               <Text style={[styles.navTabText, activeTab === 'vault' && styles.navTabTextActive]}>
-                Documents ({documents.length})
+                Vault ({documents.length})
               </Text>
             </TouchableOpacity>
 
@@ -465,7 +463,7 @@ export default function App() {
               onPress={() => setActiveTab('profile')}
             >
               <Text style={[styles.navTabText, activeTab === 'profile' && styles.navTabTextActive]}>
-                Overview
+                Info & Host
               </Text>
             </TouchableOpacity>
           </View>
@@ -473,7 +471,7 @@ export default function App() {
           {/* TAB 1: DOCUMENT VAULT */}
           {activeTab === 'vault' && (
             <View style={styles.tabContent}>
-              {/* Action Buttons Bar */}
+              {/* Quick Actions */}
               <View style={styles.actionRow}>
                 <TouchableOpacity 
                   style={styles.uploadBtn}
@@ -497,7 +495,7 @@ export default function App() {
                 </TouchableOpacity>
               </View>
 
-              {/* Folders Horizontal Scroll */}
+              {/* Folders List */}
               <View style={styles.folderSection}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderScroll}>
                   <TouchableOpacity
@@ -529,11 +527,11 @@ export default function App() {
                 </ScrollView>
               </View>
 
-              {/* Search Bar */}
+              {/* Search */}
               <View style={styles.searchBox}>
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="🔍 Search documents, type, filename..."
+                  placeholder="🔍 Search documents, filename, notes..."
                   placeholderTextColor="#94a3b8"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -601,7 +599,7 @@ export default function App() {
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <Text style={styles.emptyTitle}>No documents in this view</Text>
-                    <Text style={styles.emptySubtitle}>Tap "+ Upload Document" to secure a file.</Text>
+                    <Text style={styles.emptySubtitle}>Tap "+ Upload Document" to upload your first file.</Text>
                   </View>
                 }
               />
@@ -656,21 +654,21 @@ export default function App() {
             </View>
           )}
 
-          {/* TAB 3: OVERVIEW & SERVER CONFIG */}
+          {/* TAB 3: INFO & HOST SETTINGS */}
           {activeTab === 'profile' && (
             <ScrollView style={styles.tabContent}>
               <View style={styles.profileCard}>
-                <Text style={styles.sectionHeader}>Vault Account Information</Text>
+                <Text style={styles.sectionHeader}>Authenticated Profile</Text>
                 <View style={styles.infoLine}>
-                  <Text style={styles.infoKey}>Full Name:</Text>
+                  <Text style={styles.infoKey}>Name:</Text>
                   <Text style={styles.infoVal}>{user.name}</Text>
                 </View>
                 <View style={styles.infoLine}>
-                  <Text style={styles.infoKey}>Email Address:</Text>
+                  <Text style={styles.infoKey}>Email:</Text>
                   <Text style={styles.infoVal}>{user.email}</Text>
                 </View>
                 <View style={styles.infoLine}>
-                  <Text style={styles.infoKey}>Access Role:</Text>
+                  <Text style={styles.infoKey}>Role:</Text>
                   <Text style={styles.infoVal}>{user.role}</Text>
                 </View>
                 <View style={styles.infoLine}>
@@ -680,18 +678,27 @@ export default function App() {
               </View>
 
               <View style={styles.profileCard}>
-                <Text style={styles.sectionHeader}>Quick Metrics</Text>
-                <Text style={styles.metricText}>Total Secured Documents: {documents.length}</Text>
-                <Text style={styles.metricText}>Total Vault Folders: {folders.length}</Text>
-                {isSuperadmin && <Text style={styles.metricText}>Total Registered Users: {usersList.length}</Text>}
+                <Text style={styles.sectionHeader}>Vault Summary</Text>
+                <Text style={styles.metricText}>Total Files in Vault: {documents.length}</Text>
+                <Text style={styles.metricText}>Total Folders: {folders.length}</Text>
+                {isSuperadmin && <Text style={styles.metricText}>Total Users: {usersList.length}</Text>}
               </View>
 
               <View style={styles.profileCard}>
-                <Text style={styles.sectionHeader}>Backend Host IP</Text>
-                <Text style={styles.metricText}>Current API: {API_BASE}</Text>
-                <Text style={styles.helpText}>
-                  To connect from a physical phone via Expo Go, ensure both phone and PC are on the same Wi-Fi.
-                </Text>
+                <Text style={styles.sectionHeader}>Active API Server</Text>
+                <Text style={styles.metricText}>{apiUrl}</Text>
+                <TouchableOpacity 
+                  style={styles.switchUrlBtn}
+                  onPress={() => {
+                    const next = apiUrl.includes('plystory.si') ? LOCAL_WIFI_URL : PRODUCTION_URL;
+                    setApiUrl(next);
+                    Alert.alert('Server Switched', `Active API is now:\n${next}`);
+                  }}
+                >
+                  <Text style={styles.switchUrlBtnText}>
+                    Switch to {apiUrl.includes('plystory.si') ? 'Local Wi-Fi IP' : 'Production Cloud Domain'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           )}
@@ -733,7 +740,7 @@ export default function App() {
               <ScrollView contentContainerStyle={styles.scrollModalBox}>
                 <Text style={styles.modalHeading}>Upload Document to Vault</Text>
 
-                {/* File Picker Button */}
+                {/* File Picker */}
                 <TouchableOpacity style={styles.filePickerBox} onPress={handlePickDocument}>
                   <Text style={styles.filePickerIcon}>📄</Text>
                   {selectedFile ? (
@@ -756,7 +763,7 @@ export default function App() {
                   onChangeText={setDocName}
                 />
 
-                <Text style={styles.fieldLabel}>Document Category / Type</Text>
+                <Text style={styles.fieldLabel}>Category / Type</Text>
                 <View style={styles.typeChipsRow}>
                   {['Contract', 'Agreement', 'Policy', 'License', 'Invoice', 'General'].map(t => (
                     <TouchableOpacity
@@ -804,7 +811,7 @@ export default function App() {
                 <Text style={styles.fieldLabel}>Notes / Description</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="Additional context or terms..."
+                  placeholder="Additional terms or notes..."
                   placeholderTextColor="#94a3b8"
                   value={docDesc}
                   onChangeText={setDocDesc}
@@ -839,7 +846,7 @@ export default function App() {
                 <Text style={styles.fieldLabel}>Full Name *</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="e.g. Priya Nair"
+                  placeholder="e.g. Priya Sharma"
                   placeholderTextColor="#94a3b8"
                   value={regName}
                   onChangeText={setRegName}
@@ -858,7 +865,7 @@ export default function App() {
                 <Text style={styles.fieldLabel}>Email Address *</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="priya@plystory.com"
+                  placeholder="user@plystory.com"
                   placeholderTextColor="#94a3b8"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -866,7 +873,7 @@ export default function App() {
                   onChangeText={setRegEmail}
                 />
 
-                <Text style={styles.fieldLabel}>Initial Password *</Text>
+                <Text style={styles.fieldLabel}>Password *</Text>
                 <TextInput
                   style={styles.modalInput}
                   placeholder="Min 6 characters"
@@ -879,7 +886,7 @@ export default function App() {
                 <Text style={styles.fieldLabel}>Department</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="e.g. Legal, HR, Operations"
+                  placeholder="e.g. Legal, HR, Finance"
                   placeholderTextColor="#94a3b8"
                   value={regDept}
                   onChangeText={setRegDept}
@@ -907,7 +914,7 @@ export default function App() {
 
         </View>
       ) : (
-        /* LOGIN SCREEN (WHITE THEME) */
+        /* LOGIN SCREEN (CLEAN WHITE THEME) */
         <ScrollView contentContainerStyle={styles.loginContainer}>
           <View style={styles.brandBadgeContainer}>
             <View style={styles.iconCircle}>
@@ -919,7 +926,7 @@ export default function App() {
 
           <View style={styles.loginCard}>
             <Text style={styles.loginCardTitle}>Sign In</Text>
-            <Text style={styles.loginCardSubtitle}>Authenticate using your corporate credentials</Text>
+            <Text style={styles.loginCardSubtitle}>Authenticate using your credentials</Text>
 
             <Text style={styles.fieldLabel}>Corporate Email</Text>
             <TextInput
@@ -954,33 +961,44 @@ export default function App() {
               )}
             </TouchableOpacity>
 
-            {/* Quick Demo Fill */}
+            {/* Quick Fill Button */}
             <TouchableOpacity style={styles.quickSuperadminBtn} onPress={fillSuperadmin}>
               <Text style={styles.quickSuperadminText}>Fill Superadmin Credentials</Text>
             </TouchableOpacity>
 
-            {/* IP Server Config Toggle */}
+            {/* Server Configuration */}
             <TouchableOpacity 
               style={styles.configToggle} 
               onPress={() => setShowConfig(!showConfig)}
             >
               <Text style={styles.configToggleText}>
-                {showConfig ? 'Hide Server IP Setting' : '⚙ Change Backend Server IP'}
+                {showConfig ? 'Hide Server URL Settings' : '⚙ Server URL Settings'}
               </Text>
             </TouchableOpacity>
 
             {showConfig && (
               <View style={styles.configBox}>
-                <Text style={styles.configLabel}>PC LAN IP Address:</Text>
+                <Text style={styles.configLabel}>Target API URL:</Text>
                 <TextInput
                   style={styles.configInput}
-                  value={serverHost}
-                  onChangeText={setServerHost}
-                  placeholder="192.168.x.x"
+                  value={apiUrl}
+                  onChangeText={setApiUrl}
+                  autoCapitalize="none"
                 />
-                <Text style={styles.configHelp}>
-                  Detected PC Wi-Fi IP: 192.168.2.219 (Port 5000)
-                </Text>
+                <View style={styles.quickUrlRow}>
+                  <TouchableOpacity 
+                    style={styles.quickUrlPill}
+                    onPress={() => setApiUrl(PRODUCTION_URL)}
+                  >
+                    <Text style={styles.quickUrlText}>Use Cloud Subdomain</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.quickUrlPill}
+                    onPress={() => setApiUrl(LOCAL_WIFI_URL)}
+                  >
+                    <Text style={styles.quickUrlText}>Use Local Wi-Fi</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -1321,7 +1339,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 4,
   },
-  // User Tab
   userCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -1384,7 +1401,6 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontWeight: '700',
   },
-  // Overview Tab
   profileCard: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
@@ -1421,13 +1437,18 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     fontWeight: '500',
   },
-  helpText: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 8,
-    lineHeight: 16,
+  switchUrlBtn: {
+    marginTop: 10,
+    backgroundColor: '#e0e7ff',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  // Modals
+  switchUrlBtnText: {
+    color: '#4338ca',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   modalBg: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
@@ -1438,11 +1459,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
   },
   scrollModalBox: {
     backgroundColor: '#ffffff',
@@ -1576,7 +1592,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-  // Login Screen
   loginContainer: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -1594,11 +1609,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#4f46e5',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#4f46e5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
     marginBottom: 12,
   },
   iconCircleText: {
@@ -1620,11 +1630,6 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   loginCardTitle: {
     fontSize: 18,
@@ -1654,11 +1659,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 6,
-    shadowColor: '#4f46e5',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   loginSubmitText: {
     color: '#ffffff',
@@ -1710,9 +1710,23 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     marginTop: 4,
   },
-  configHelp: {
+  quickUrlRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  quickUrlPill: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  quickUrlText: {
     fontSize: 10,
-    color: '#64748b',
-    marginTop: 4,
+    fontWeight: '600',
+    color: '#334155',
   },
 });
