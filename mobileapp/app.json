@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DocVault Mobile",
+    "name": "DocVault",
     "slug": "docvault-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,18 +11,25 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.plystory.docvault"
     },
     "android": {
+      "package": "com.plystory.docvault",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b867e922-15d3-43b8-9b1b-312eec511d18"
       }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-asset"
-    ]
+    "owner": "kdeka"
   }
 }
