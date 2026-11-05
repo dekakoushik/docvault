@@ -7,17 +7,17 @@ import bcrypt from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbDir = path.resolve(__dirname, '../../database');
+const dbDir = process.env.DATA_DIR || path.resolve(__dirname, '../../database');
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const uploadsDir = path.resolve(__dirname, '../../uploads');
+const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const dbPath = path.resolve(__dirname, '../../database/docvault.sqlite');
+const dbPath = path.resolve(dbDir, 'docvault.sqlite');
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {

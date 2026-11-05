@@ -12,6 +12,8 @@ RUN npm ci --omit=dev
 
 COPY src/ ./src/
 
+RUN mkdir -p /app/database /app/uploads /app/.agent
+
 EXPOSE 5000
 
 ENV NODE_ENV=production

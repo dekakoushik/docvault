@@ -26,7 +26,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files statically if needed
-app.use('/uploads', express.static(path.resolve(__dirname, '../../uploads')));
+const uploadsPath = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // Audit request logger for .agent tracking
 app.use((req, res, next) => {

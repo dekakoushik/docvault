@@ -9,7 +9,7 @@ import { logAudit } from '../logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadDirectory = path.resolve(__dirname, '../../../uploads');
+const uploadDirectory = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../../uploads');
 
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });

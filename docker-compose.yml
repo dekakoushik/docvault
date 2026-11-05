@@ -12,6 +12,9 @@ services:
       - DEFAULT_ADMIN_PASSWORD=Admin@2026
       - DEFAULT_ADMIN_NAME=Super Administrator
       - DEFAULT_ADMIN_PHONE=9876543210
+      - DATA_DIR=/app/database
+      - UPLOADS_DIR=/app/uploads
+      - AGENT_DIR=/app/.agent
     volumes:
       - docvault_db:/app/database
       - docvault_uploads:/app/uploads

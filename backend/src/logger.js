@@ -4,8 +4,8 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// __dirname is backend/src -> resolve to DocVault/.agent
-const agentLogDir = path.resolve(__dirname, '../../.agent');
+// Resolve agent log dir: check env AGENT_DIR, else resolve relative to project root
+const agentLogDir = process.env.AGENT_DIR || path.resolve(__dirname, '../../.agent');
 
 if (!fs.existsSync(agentLogDir)) {
   fs.mkdirSync(agentLogDir, { recursive: true });
