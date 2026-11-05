@@ -21,6 +21,8 @@ services:
       - docvault_agent:/app/.agent
     expose:
       - "5000"
+    ports:
+      - "5000:5000"
     networks:
       - docvault-net
 
