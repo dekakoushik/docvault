@@ -48,3 +48,4 @@ npm install
 npx expo start
 ```
 Scan the QR code with the Expo Go app on your phone.
+
