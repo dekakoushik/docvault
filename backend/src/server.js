@@ -66,7 +66,7 @@ app.use((err, req, res, next) => {
 async function start() {
   try {
     await initDatabase();
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);
       console.log(`DocVault Enterprise Server running on port ${PORT}`);
       console.log(`Vault API: http://localhost:${PORT}/api/vault`);
