@@ -97,7 +97,16 @@ export default function App() {
         body: JSON.stringify({ email: email.trim(), password })
       });
 
-      const data = await response.json();
+      const textResponse = await response.text();
+      let data;
+      try {
+        data = JSON.parse(textResponse);
+      } catch (parseErr) {
+        throw new Error(
+          `Server returned HTTP ${response.status} (${response.statusText || 'Error'}). The server may still be deploying or unreachable.`
+        );
+      }
+
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Authentication failed');
       }
