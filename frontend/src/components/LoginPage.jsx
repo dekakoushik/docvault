@@ -29,7 +29,17 @@ export default function LoginPage({ onLoginSuccess }) {
         body: JSON.stringify({ email: email.trim(), password })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        if (res.status === 502 || res.status === 503) {
+          throw new Error('Backend service unavailable (HTTP 502). The backend container is restarting or unreachable.');
+        }
+        throw new Error(`Server returned HTTP ${res.status}: ${text.slice(0, 120)}`);
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Login failed');
       }
