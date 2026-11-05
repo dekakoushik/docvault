@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docvault-backend
+    restart: always
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=docvault_superadmin_secret_key_2026_production_ready
+      - DEFAULT_ADMIN_EMAIL=ithelpdesk@plystory.com
+      - DEFAULT_ADMIN_PASSWORD=Admin@2026
+      - DEFAULT_ADMIN_NAME=Super Administrator
+      - DEFAULT_ADMIN_PHONE=9876543210
+    volumes:
+      - docvault_db:/app/database
+      - docvault_uploads:/app/uploads
+      - docvault_agent:/app/.agent
+    expose:
+      - "5000"
+    networks:
+      - docvault-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docvault-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - docvault-net
+
+volumes:
+  docvault_db:
+    name: docvault_db_data
+  docvault_uploads:
+    name: docvault_uploads_data
+  docvault_agent:
+    name: docvault_agent_logs
+
+networks:
+  docvault-net:
+    driver: bridge
