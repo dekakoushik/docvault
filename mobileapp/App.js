@@ -426,7 +426,7 @@ export default function App() {
         <View style={styles.mainView}>
           {/* Header */}
           <View style={styles.topHeader}>
-            <View>
+            <View style={{ flex: 1, marginRight: 12 }}>
               <View style={styles.titleRow}>
                 <Text style={styles.brandTitle}>DocVault</Text>
                 <View style={isSuperadmin ? styles.superadminBadge : styles.userBadge}>
@@ -435,9 +435,11 @@ export default function App() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.userSubtitle}>{user.name} • {user.email}</Text>
+              <Text style={styles.userSubtitle} numberOfLines={1} ellipsizeMode="tail">
+                {user.name} • {user.email}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
               <Text style={styles.logoutBtnText}>Logout</Text>
             </TouchableOpacity>
           </View>
@@ -607,8 +609,22 @@ export default function App() {
                 }}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyTitle}>No documents in this view</Text>
-                    <Text style={styles.emptySubtitle}>Tap "+ Upload Document" to upload your first file.</Text>
+                    <View style={styles.emptyIconContainer}>
+                      <Text style={styles.emptyIconText}>📁</Text>
+                    </View>
+                    <Text style={styles.emptyTitle}>No Documents in this View</Text>
+                    <Text style={styles.emptySubtitle}>
+                      {searchQuery
+                        ? `No results found matching "${searchQuery}"`
+                        : 'Upload contracts, certificates, and confidential files with renewal tracking.'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyActionBtn}
+                      onPress={() => setUploadModalOpen(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.emptyActionText}>+ Upload First Document</Text>
+                    </TouchableOpacity>
                   </View>
                 }
               />
@@ -1021,6 +1037,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   mainView: {
     flex: 1,
@@ -1030,10 +1047,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingBottom: 14,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#f1f5f9',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1041,51 +1064,55 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#0f172a',
+    letterSpacing: -0.5,
   },
   superadminBadge: {
-    backgroundColor: '#e0e7ff',
+    backgroundColor: '#eff6ff',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#c7d2fe',
+    borderColor: '#bfdbfe',
   },
   superadminBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#4338ca',
+    fontWeight: '800',
+    color: '#2563eb',
+    letterSpacing: 0.5,
   },
   userBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: '#a7f3d0',
   },
   userBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#15803d',
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
   },
   userSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748b',
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: '500',
   },
   logoutBtn: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#fff1f2',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: '#ffe4e6',
   },
   logoutBtnText: {
-    color: '#dc2626',
+    color: '#e11d48',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -1120,103 +1147,124 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   uploadBtn: {
     flex: 1,
     backgroundColor: '#4f46e5',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
     shadowColor: '#4f46e5',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
   uploadBtnText: {
     color: '#ffffff',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 13,
+    letterSpacing: 0.2,
   },
   createFolderBtn: {
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: '#cbd5e1',
     alignItems: 'center',
   },
   createFolderBtnText: {
-    color: '#b45309',
+    color: '#1e293b',
     fontWeight: '700',
     fontSize: 13,
   },
   refreshBtn: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   refreshBtnText: {
     color: '#475569',
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 18,
   },
   folderSection: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   folderScroll: {
     flexDirection: 'row',
+    paddingVertical: 2,
   },
   folderChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     marginRight: 8,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 1,
   },
   folderChipActive: {
     backgroundColor: '#eef2ff',
     borderColor: '#6366f1',
   },
   folderChipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
   },
   folderChipTextActive: {
     color: '#4338ca',
+    fontWeight: '700',
   },
   folderDelBtn: {
-    marginLeft: 6,
-    padding: 2,
+    marginLeft: 8,
+    padding: 3,
+    backgroundColor: '#fee2e2',
+    borderRadius: 6,
   },
   folderDelText: {
-    color: '#ef4444',
+    color: '#dc2626',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '900',
   },
   searchBox: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   searchInput: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     fontSize: 13,
     color: '#0f172a',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 1,
   },
   docCard: {
     backgroundColor: '#ffffff',
@@ -1336,17 +1384,59 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 50,
+    paddingHorizontal: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    marginTop: 10,
+  },
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyIconText: {
+    fontSize: 28,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#64748b',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e293b',
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  emptyActionBtn: {
+    marginTop: 18,
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    elevation: 2,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  emptyActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   userCard: {
     backgroundColor: '#ffffff',
