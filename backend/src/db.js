@@ -77,11 +77,20 @@ export async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       description TEXT,
+      parent_id INTEGER DEFAULT NULL,
       created_by INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE,
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `);
+
+  // Ensure parent_id column exists if table was already created
+  try {
+    await dbRun(`ALTER TABLE folders ADD COLUMN parent_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE CASCADE`);
+  } catch (err) {
+    // Column already exists, safe to ignore
+  }
 
   // Documents table (stores any file type, document name, type/category, renewal_date, file_path, tags, size, etc.)
   await dbRun(`

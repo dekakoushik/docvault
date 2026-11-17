@@ -191,9 +191,16 @@ export default function DocumentVault({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <Folder className={`w-5 h-5 ${isSelected ? 'text-amber-600' : 'text-amber-500'}`} />
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-semibold">
+                    <Folder className={`w-5 h-5 ${isSelected ? 'text-amber-600' : 'text-amber-500'}`} />
+                    {folder.parent_name && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100/70 px-1 py-0.5 rounded">
+                        Sub
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-semibold" title="Document count">
                       {folder.doc_count || 0}
                     </span>
                     {/* Superadmin Delete Folder Button */}
@@ -203,7 +210,7 @@ export default function DocumentVault({
                         onClick={(e) => handleDeleteFolder(e, folder)}
                         disabled={isDeletingThisFolder}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-rose-500 hover:text-white hover:bg-rose-500 transition-all"
-                        title="Delete folder (Superadmin)"
+                        title="Delete folder and subfolders (Superadmin)"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -211,7 +218,9 @@ export default function DocumentVault({
                   </div>
                 </div>
                 <p className="text-xs font-bold mt-2 truncate">{folder.name}</p>
-                {folder.description ? (
+                {folder.parent_name ? (
+                  <p className="text-[10px] text-amber-600/90 font-medium truncate mt-0.5">↳ in {folder.parent_name}</p>
+                ) : folder.description ? (
                   <p className="text-[10px] text-slate-400 truncate mt-0.5">{folder.description}</p>
                 ) : null}
               </div>

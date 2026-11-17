@@ -43,10 +43,12 @@ const router = express.Router();
 router.get('/folders', authenticateToken, async (req, res) => {
   try {
     const folders = await dbAll(`
-      SELECT f.*, u.name as creator_name,
-        (SELECT COUNT(*) FROM documents d WHERE d.folder_id = f.id) as doc_count
+      SELECT f.*, u.name as creator_name, pf.name as parent_name,
+        (SELECT COUNT(*) FROM documents d WHERE d.folder_id = f.id) as doc_count,
+        (SELECT COUNT(*) FROM folders sub WHERE sub.parent_id = f.id) as subfolder_count
       FROM folders f
       LEFT JOIN users u ON f.created_by = u.id
+      LEFT JOIN folders pf ON f.parent_id = pf.id
       ORDER BY f.id ASC
     `);
     res.json({ success: true, folders });
@@ -56,40 +58,63 @@ router.get('/folders', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/vault/folders - Create new folder
+// POST /api/vault/folders - Create new folder or subfolder
 router.post('/folders', authenticateToken, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, parent_id } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Folder name is required.' });
     }
 
     const cleanName = name.trim();
+    let parentFolder = null;
+    let validParentId = null;
+
+    if (parent_id) {
+      parentFolder = await dbGet('SELECT * FROM folders WHERE id = ?', [parent_id]);
+      if (!parentFolder) {
+        return res.status(404).json({ success: false, message: 'Parent folder not found.' });
+      }
+      validParentId = parentFolder.id;
+    }
+
     const result = await dbRun(
-      `INSERT INTO folders (name, description, created_by) VALUES (?, ?, ?)`,
-      [cleanName, description ? description.trim() : '', req.user.id]
+      `INSERT INTO folders (name, description, parent_id, created_by) VALUES (?, ?, ?, ?)`,
+      [cleanName, description ? description.trim() : '', validParentId, req.user.id]
     );
 
     logAudit('FOLDER_CREATED', req.user.email, {
       folderId: result.lastID,
-      folderName: cleanName
+      folderName: cleanName,
+      parentId: validParentId,
+      parentName: parentFolder ? parentFolder.name : null
     });
 
     await dbRun(
       'INSERT INTO activity_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
-      [req.user.id, 'FOLDER_CREATED', `Created folder "${cleanName}"`, req.ip || '127.0.0.1']
+      [
+        req.user.id,
+        'FOLDER_CREATED',
+        validParentId
+          ? `Created subfolder "${cleanName}" under "${parentFolder.name}"`
+          : `Created folder "${cleanName}"`,
+        req.ip || '127.0.0.1'
+      ]
     );
 
     res.status(201).json({
       success: true,
-      message: 'Folder created successfully',
+      message: validParentId ? 'Subfolder created successfully' : 'Folder created successfully',
       folder: {
         id: result.lastID,
         name: cleanName,
         description: description || '',
+        parent_id: validParentId,
+        parent_name: parentFolder ? parentFolder.name : null,
         created_by: req.user.id,
         creator_name: req.user.name,
-        doc_count: 0
+        doc_count: 0,
+        subfolder_count: 0
       }
     });
   } catch (error) {
@@ -98,7 +123,7 @@ router.post('/folders', authenticateToken, async (req, res) => {
   }
 });
 
-// DELETE /api/vault/folders/:id - Only Superadmin can delete folders
+// DELETE /api/vault/folders/:id - Only Superadmin can delete folders (and their subfolders)
 router.delete('/folders/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'superadmin') {
@@ -112,20 +137,39 @@ router.delete('/folders/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Folder not found.' });
     }
 
-    // Set any documents currently in this folder to folder_id = NULL (root vault)
-    await dbRun('UPDATE documents SET folder_id = NULL WHERE folder_id = ?', [id]);
+    // Recursively collect all descendant folder IDs
+    const getAllDescendantFolderIds = async (rootId) => {
+      const ids = [parseInt(rootId)];
+      let queue = [parseInt(rootId)];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        const children = await dbAll('SELECT id FROM folders WHERE parent_id = ?', [current]);
+        for (const child of children) {
+          ids.push(child.id);
+          queue.push(child.id);
+        }
+      }
+      return ids;
+    };
 
-    // Delete folder
-    await dbRun('DELETE FROM folders WHERE id = ?', [id]);
+    const folderIdsToDelete = await getAllDescendantFolderIds(id);
+    const placeholders = folderIdsToDelete.map(() => '?').join(',');
+
+    // Move any documents in these folders to root (folder_id = NULL)
+    await dbRun(`UPDATE documents SET folder_id = NULL WHERE folder_id IN (${placeholders})`, folderIdsToDelete);
+
+    // Delete folders (subfolders and the target folder)
+    await dbRun(`DELETE FROM folders WHERE id IN (${placeholders})`, folderIdsToDelete);
 
     logAudit('FOLDER_DELETED', req.user.email, {
       folderId: id,
-      folderName: folder.name
+      folderName: folder.name,
+      deletedSubfolderCount: folderIdsToDelete.length - 1
     });
 
     await dbRun(
       'INSERT INTO activity_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
-      [req.user.id, 'FOLDER_DELETED', `Superadmin deleted folder "${folder.name}"`, req.ip || '127.0.0.1']
+      [req.user.id, 'FOLDER_DELETED', `Superadmin deleted folder "${folder.name}" and ${folderIdsToDelete.length - 1} subfolder(s)`, req.ip || '127.0.0.1']
     );
 
     res.json({ success: true, message: `Folder "${folder.name}" deleted successfully.` });

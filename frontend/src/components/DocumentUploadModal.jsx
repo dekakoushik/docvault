@@ -223,7 +223,9 @@ export default function DocumentUploadModal({
                 >
                   <option value="">No Folder (Root Vault)</option>
                   {folders.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+                    <option key={f.id} value={f.id}>
+                      {f.parent_name ? `↳ ${f.parent_name} / ${f.name}` : `📁 ${f.name}`}
+                    </option>
                   ))}
                 </select>
               </div>

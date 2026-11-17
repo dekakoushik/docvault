@@ -7,12 +7,31 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function CreateFolderModal({ isOpen, onClose, token, onFolderCreated }) {
+export default function CreateFolderModal({ 
+  isOpen, 
+  onClose, 
+  token, 
+  folders = [], 
+  defaultParentId = null, 
+  onFolderCreated 
+}) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [parentId, setParentId] = useState(defaultParentId || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Update parentId whenever modal opens or defaultParentId changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setParentId(defaultParentId || '');
+      setName('');
+      setDescription('');
+      setError('');
+      setSuccess('');
+    }
+  }, [isOpen, defaultParentId]);
 
   if (!isOpen) return null;
 
@@ -28,12 +47,18 @@ export default function CreateFolderModal({ isOpen, onClose, token, onFolderCrea
     setSuccess('');
 
     try {
-      const res = await api.createFolder(token, { name: name.trim(), description: description.trim() });
+      const payload = {
+        name: name.trim(),
+        description: description.trim(),
+        parent_id: parentId ? parseInt(parentId) : null
+      };
+
+      const res = await api.createFolder(token, payload);
       if (!res.success) {
         throw new Error(res.message || 'Failed to create folder');
       }
 
-      setSuccess(`Folder "${res.folder.name}" created!`);
+      setSuccess(`${parentId ? 'Subfolder' : 'Folder'} "${res.folder.name}" created!`);
       if (onFolderCreated) {
         onFolderCreated(res.folder);
       }
@@ -104,6 +129,27 @@ export default function CreateFolderModal({ isOpen, onClose, token, onFolderCrea
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:bg-white"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+              Parent Folder (Optional)
+            </label>
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:bg-white"
+            >
+              <option value="">None (Top-Level Folder)</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  📁 {f.name} {f.parent_name ? `(under ${f.parent_name})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Select an existing folder to nest this as a subfolder, or leave as None to create a main folder.
+            </p>
           </div>
 
           <div>

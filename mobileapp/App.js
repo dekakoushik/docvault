@@ -56,6 +56,7 @@ export default function App() {
   // Form States: New Folder
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDesc, setNewFolderDesc] = useState('');
+  const [newFolderParentId, setNewFolderParentId] = useState('');
 
   // Form States: Document Upload
   const [selectedFile, setSelectedFile] = useState(null);
@@ -167,26 +168,33 @@ export default function App() {
     }
   };
 
-  // Create Folder
+  // Create Folder or Subfolder
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       Alert.alert('Required', 'Please enter a folder name.');
       return;
     }
     try {
+      const payload = {
+        name: newFolderName.trim(),
+        description: newFolderDesc.trim(),
+        parent_id: newFolderParentId ? parseInt(newFolderParentId) : null
+      };
+
       const res = await fetch(`${apiUrl}/vault/folders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ name: newFolderName.trim(), description: newFolderDesc.trim() })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        Alert.alert('Success', `Folder "${data.folder.name}" created!`);
+        Alert.alert('Success', `${newFolderParentId ? 'Subfolder' : 'Folder'} "${data.folder.name}" created!`);
         setNewFolderName('');
         setNewFolderDesc('');
+        setNewFolderParentId('');
         setFolderModalOpen(false);
         loadVault(token);
       } else {
@@ -526,8 +534,13 @@ export default function App() {
                       onLongPress={() => isSuperadmin && handleDeleteFolder(f)}
                     >
                       <Text style={[styles.folderChipText, selectedFolder === f.id && styles.folderChipTextActive]}>
-                        📁 {f.name} ({f.doc_count || 0})
+                        {f.parent_name ? `↳ ${f.name}` : `📁 ${f.name}`} ({f.doc_count || 0})
                       </Text>
+                      {f.parent_name ? (
+                        <View style={styles.subBadge}>
+                          <Text style={styles.subBadgeText}>SUB</Text>
+                        </View>
+                      ) : null}
                       {isSuperadmin && (
                         <TouchableOpacity onPress={() => handleDeleteFolder(f)} style={styles.folderDelBtn}>
                           <Text style={styles.folderDelText}>✕</Text>
@@ -728,31 +741,64 @@ export default function App() {
             </ScrollView>
           )}
 
-          {/* MODAL 1: CREATE FOLDER */}
+          {/* MODAL 1: CREATE FOLDER OR SUBFOLDER */}
           <Modal visible={folderModalOpen} transparent animationType="slide">
             <View style={styles.modalBg}>
               <View style={styles.modalBox}>
-                <Text style={styles.modalHeading}>Create New Vault Folder</Text>
+                <Text style={styles.modalHeading}>Create Folder or Subfolder</Text>
+                
+                <Text style={styles.fieldLabel}>Folder Name *</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="Folder Name (e.g. Legal, Finance)"
+                  placeholder="Folder Name (e.g. Invoices 2026, NDAs)"
                   placeholderTextColor="#94a3b8"
                   value={newFolderName}
                   onChangeText={setNewFolderName}
                 />
+
+                <Text style={styles.fieldLabel}>Parent Folder (Select for Subfolder)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modalFolderScroll}>
+                  <TouchableOpacity
+                    style={[styles.folderSelectChip, newFolderParentId === '' && styles.folderSelectChipActive]}
+                    onPress={() => setNewFolderParentId('')}
+                  >
+                    <Text style={[styles.folderSelectText, newFolderParentId === '' && styles.folderSelectTextActive]}>
+                      📁 None (Root Level)
+                    </Text>
+                  </TouchableOpacity>
+                  {folders.map(f => (
+                    <TouchableOpacity
+                      key={f.id}
+                      style={[styles.folderSelectChip, newFolderParentId === f.id && styles.folderSelectChipActive]}
+                      onPress={() => setNewFolderParentId(f.id)}
+                    >
+                      <Text style={[styles.folderSelectText, newFolderParentId === f.id && styles.folderSelectTextActive]}>
+                        ↳ {f.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.fieldLabel}>Description (Optional)</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="Description (Optional)"
+                  placeholder="Description..."
                   placeholderTextColor="#94a3b8"
                   value={newFolderDesc}
                   onChangeText={setNewFolderDesc}
                 />
+
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setFolderModalOpen(false)}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+                    setFolderModalOpen(false);
+                    setNewFolderParentId('');
+                  }}>
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.submitBtn} onPress={handleCreateFolder}>
-                    <Text style={styles.submitBtnText}>Create Folder</Text>
+                    <Text style={styles.submitBtnText}>
+                      {newFolderParentId ? 'Create Subfolder' : 'Create Folder'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -827,7 +873,7 @@ export default function App() {
                       onPress={() => setUploadFolderId(f.id)}
                     >
                       <Text style={[styles.folderSelectText, uploadFolderId === f.id && styles.folderSelectTextActive]}>
-                        {f.name}
+                        {f.parent_name ? `↳ ${f.name}` : `📁 ${f.name}`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1247,6 +1293,20 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontSize: 10,
     fontWeight: '900',
+  },
+  subBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  subBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#b45309',
   },
   searchBox: {
     marginBottom: 12,

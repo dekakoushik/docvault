@@ -273,6 +273,7 @@ export default function App() {
           token={token}
           isOpen={isFolderModalOpen}
           onClose={() => setIsFolderModalOpen(false)}
+          folders={foldersList}
           onFolderCreated={handleFolderCreated}
         />
 
