@@ -1,5 +1,6 @@
 services:
   backend:
+    container_name: docvault-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -27,6 +28,7 @@ services:
       - docvault-net
 
   frontend:
+    container_name: docvault-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
