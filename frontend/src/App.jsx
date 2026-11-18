@@ -15,6 +15,7 @@ import CreateFolderModal from './components/CreateFolderModal';
 import UserDirectory from './components/UserDirectory';
 import RegisterUserModal from './components/RegisterUserModal';
 import AuditLogsView from './components/AuditLogsView';
+import AIAssistantView from './components/AIAssistantView';
 import { api } from './services/api';
 
 export default function App() {
@@ -228,6 +229,17 @@ export default function App() {
               onRefresh={fetchVaultData}
               onOpenUpload={() => setIsUploadModalOpen(true)}
               onOpenCreateFolder={() => setIsFolderModalOpen(true)}
+            />
+          )}
+
+          {currentTab === 'ai' && (
+            <AIAssistantView
+              token={token}
+              currentUser={user}
+              onRefreshVault={fetchVaultData}
+              onSelectFolder={(folderId) => {
+                setCurrentTab('vault');
+              }}
             />
           )}
 

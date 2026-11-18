@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import vaultRoutes from './routes/vault.js';
+import aiRoutes from './routes/ai.js';
 import { initDatabase } from './db.js';
 import { logAudit } from './logger.js';
 
@@ -54,6 +55,7 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/vault', vaultRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

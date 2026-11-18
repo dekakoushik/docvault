@@ -48,6 +48,19 @@ export default function App() {
   const [usersList, setUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
+  // AI Assistant State
+  const [aiChatMessages, setAiChatMessages] = useState([
+    {
+      id: 1,
+      sender: 'bot',
+      text: 'Hello! I am DocVault AI. You can ask me to search files, create folders or subfolders, or upload documents directly for automatic organization.',
+      time: 'Now'
+    }
+  ]);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiUploading, setAiUploading] = useState(false);
+
   // Modals
   const [folderModalOpen, setFolderModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -416,6 +429,118 @@ export default function App() {
     setPassword('');
   };
 
+  // AI Assistant Chat Handler
+  const handleAiSend = async () => {
+    if (!aiPrompt.trim() || aiLoading) return;
+    const userMsg = aiPrompt.trim();
+    setAiPrompt('');
+
+    const newChat = {
+      id: Date.now(),
+      sender: 'user',
+      text: userMsg,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setAiChatMessages(prev => [...prev, newChat]);
+    setAiLoading(true);
+
+    try {
+      const res = await fetch(`${apiUrl}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ prompt: userMsg })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiChatMessages(prev => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: 'bot',
+            text: data.reply,
+            actions: data.actions || [],
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+        if (data.actions?.some(a => a.type === 'FOLDER_CREATED')) {
+          loadVault(token);
+        }
+      } else {
+        throw new Error(data.message || 'AI error');
+      }
+    } catch (err) {
+      setAiChatMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: 'bot',
+          text: `⚠️ ${err.message}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // AI Direct Auto-Organize Upload
+  const handleAiAutoUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: '*/*'
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setAiUploading(true);
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri: file.uri,
+          name: file.name,
+          type: file.mimeType || 'application/octet-stream'
+        });
+        formData.append('prompt', 'Auto-detect folder category and renewal date');
+
+        const res = await fetch(`${apiUrl}/ai/auto-upload`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          Alert.alert(
+            '🎉 AI Organized Document!',
+            `File: ${data.document.name}\nCategory: ${data.aiAnalysis.category}\nFiled in: ${data.aiAnalysis.folder}${data.aiAnalysis.renewalDate ? `\nRenewal Date: ${data.aiAnalysis.renewalDate}` : ''}`
+          );
+          setAiChatMessages(prev => [
+            ...prev,
+            {
+              id: Date.now(),
+              sender: 'bot',
+              text: `✅ **Document Auto-Organized:** "${data.document.name}"\n• Category: **${data.aiAnalysis.category}**\n• Folder: **${data.aiAnalysis.folder}**${data.aiAnalysis.renewalDate ? `\n• Renewal: **${data.aiAnalysis.renewalDate}**` : ''}`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          ]);
+          loadVault(token);
+        } else {
+          Alert.alert('Upload Failed', data.message);
+        }
+      }
+    } catch (err) {
+      Alert.alert('Error', 'AI upload failed: ' + err.message);
+    } finally {
+      setAiUploading(false);
+    }
+  };
+
   // Filtered documents
   const filteredDocs = documents.filter((doc) => {
     const matchesFolder = selectedFolder === 'ALL' || String(doc.folder_id) === String(selectedFolder);
@@ -460,6 +585,15 @@ export default function App() {
             >
               <Text style={[styles.navTabText, activeTab === 'vault' && styles.navTabTextActive]}>
                 Vault ({documents.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.navTab, activeTab === 'ai' && styles.navTabActive]} 
+              onPress={() => setActiveTab('ai')}
+            >
+              <Text style={[styles.navTabText, activeTab === 'ai' && styles.navTabTextActive]}>
+                ✨ AI Bot
               </Text>
             </TouchableOpacity>
 
@@ -644,7 +778,84 @@ export default function App() {
             </View>
           )}
 
-          {/* TAB 2: USER DIRECTORY (Superadmin Only) */}
+          {/* TAB 2: AI BOT COPILOT */}
+          {activeTab === 'ai' && (
+            <View style={styles.tabContent}>
+              <View style={styles.aiBannerCard}>
+                <View style={styles.aiBannerIconCircle}>
+                  <Text style={{ fontSize: 20 }}>✨</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiBannerTitle}>DocVault AI Copilot</Text>
+                  <Text style={styles.aiBannerSub}>
+                    Auto-organize files into subfolders or execute vault commands.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Direct AI Auto-Organize Action */}
+              <TouchableOpacity 
+                style={styles.aiAutoUploadBtn} 
+                onPress={handleAiAutoUpload}
+                disabled={aiUploading}
+                activeOpacity={0.8}
+              >
+                {aiUploading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.aiAutoUploadBtnText}>
+                    ⚡ Pick & Auto-Organize Document with AI
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Chat messages */}
+              <FlatList
+                data={aiChatMessages}
+                keyExtractor={(item) => String(item.id)}
+                style={styles.aiChatList}
+                contentContainerStyle={{ paddingVertical: 10 }}
+                renderItem={({ item }) => (
+                  <View style={[
+                    styles.aiMessageBubble,
+                    item.sender === 'user' ? styles.aiMessageUser : styles.aiMessageBot
+                  ]}>
+                    <Text style={[
+                      styles.aiMessageText,
+                      item.sender === 'user' ? styles.aiMessageTextUser : styles.aiMessageTextBot
+                    ]}>
+                      {item.text}
+                    </Text>
+                    <Text style={styles.aiMessageTime}>{item.time}</Text>
+                  </View>
+                )}
+              />
+
+              {/* Chat Input */}
+              <View style={styles.aiInputRow}>
+                <TextInput
+                  style={styles.aiTextInput}
+                  placeholder="Ask: 'Create folder Projects', 'Search NDA'..."
+                  placeholderTextColor="#94a3b8"
+                  value={aiPrompt}
+                  onChangeText={setAiPrompt}
+                />
+                <TouchableOpacity 
+                  style={styles.aiSendBtn} 
+                  onPress={handleAiSend}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                >
+                  {aiLoading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.aiSendBtnText}>➤</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 3: USER DIRECTORY (Superadmin Only) */}
           {activeTab === 'users' && isSuperadmin && (
             <View style={styles.tabContent}>
               <View style={styles.actionRow}>
@@ -1887,5 +2098,133 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#334155',
+  },
+  aiBannerCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
+    marginBottom: 12,
+    shadowColor: '#4338ca',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  aiBannerIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#eef2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1e1b4b',
+  },
+  aiBannerSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  aiAutoUploadBtn: {
+    backgroundColor: '#4338ca',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#4338ca',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiAutoUploadBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  aiChatList: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  aiMessageBubble: {
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    maxWidth: '85%',
+  },
+  aiMessageUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#4f46e5',
+    borderBottomRightRadius: 4,
+  },
+  aiMessageBot: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderBottomLeftRadius: 4,
+  },
+  aiMessageText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  aiMessageTextUser: {
+    color: '#ffffff',
+  },
+  aiMessageTextBot: {
+    color: '#1e293b',
+  },
+  aiMessageTime: {
+    fontSize: 10,
+    marginTop: 4,
+    color: '#94a3b8',
+    alignSelf: 'flex-end',
+  },
+  aiInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+    paddingBottom: 6,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+  },
+  aiTextInput: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: '#0f172a',
+  },
+  aiSendBtn: {
+    backgroundColor: '#4f46e5',
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiSendBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

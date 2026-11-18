@@ -133,5 +133,29 @@ export const api = {
 
   getDownloadUrl(docId) {
     return `/api/vault/download/${docId}`;
+  },
+
+  // AI Assistant Endpoints
+  async aiChat(token, prompt) {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ prompt })
+    });
+    return res.json();
+  },
+
+  async aiAutoUpload(token, formData) {
+    const res = await fetch('/api/ai/auto-upload', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
+    });
+    return res.json();
   }
 };

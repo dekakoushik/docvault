@@ -11,7 +11,8 @@ import {
   Database,
   FolderLock,
   UploadCloud,
-  FolderPlus
+  FolderPlus,
+  Sparkles
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -28,6 +29,7 @@ export default function Sidebar({
 
   const navItems = [
     { id: 'vault', label: 'Document Vault', icon: FolderLock },
+    { id: 'ai', label: 'AI Vault Assistant', icon: Sparkles, badge: 'Smart' },
     { id: 'dashboard', label: 'Overview & Metrics', icon: Activity },
     ...(isSuperadmin ? [
       { id: 'users', label: 'User Directory', icon: Users },
@@ -152,7 +154,14 @@ export default function Sidebar({
                   <Icon className={`w-4 h-4 ${active ? 'text-indigo-600' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </div>
-                {active && <ChevronRight className="w-4 h-4 text-indigo-500" />}
+                <div className="flex items-center gap-1.5">
+                  {item.badge && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700">
+                      {item.badge}
+                    </span>
+                  )}
+                  {active && <ChevronRight className="w-4 h-4 text-indigo-500" />}
+                </div>
               </button>
             );
           })}
